@@ -1,6 +1,6 @@
 bot:
   username: "dndsofiabot"
-  token: ""
+  token: ${BOT_TOKEN}
 
 game:
   gameSettings:
