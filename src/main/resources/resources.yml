@@ -1,0 +1,14 @@
+resources:
+  resource1:
+    name: "Здоровье"
+    emoji: "❤️"
+    initialValue: 100
+  resource2:
+    name: "Рассудок"
+    emoji: "🧠"
+    initialValue: 100
+resourceChanges:
+  positiveMin: 10
+  positiveMax: 25
+  negativeMin: -25
+  negativeMax: -10

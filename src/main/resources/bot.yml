@@ -1,0 +1,3 @@
+bot:
+  username: "dndsofiabot"
+  token: ${BOT_TOKEN}

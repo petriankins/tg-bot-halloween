@@ -2,17 +2,24 @@ package me.petriankins.tgbothalloween.service;
 
 import lombok.RequiredArgsConstructor;
 import me.petriankins.tgbothalloween.config.GameConfig;
+import me.petriankins.tgbothalloween.config.MessagesConfig;
+import me.petriankins.tgbothalloween.config.ResourcesConfig;
+import me.petriankins.tgbothalloween.config.ScenariosConfig;
 import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ConfigService {
     private final GameConfig gameConfig;
+    private final ScenariosConfig scenariosConfig;
+    private final MessagesConfig messagesConfig;
+    private final ResourcesConfig resourcesConfig;
     private final Random random = new Random();
 
     public GameConfig.GameSettings getGameSettings() {
@@ -20,36 +27,37 @@ public class ConfigService {
     }
 
     public Map<String, String> getMessages() {
-        return gameConfig.getMessages();
+        return messagesConfig.getMessages();
     }
 
-    public Map<String, GameConfig.ResourceConfig> getResources() {
-        return gameConfig.getResources();
+    public Map<String, ResourcesConfig.ResourceConfig> getResources() {
+        return resourcesConfig.getResources();
     }
 
-    public List<GameConfig.ScenarioConfig> getScenarios() {
-        return gameConfig.getScenarios();
+    public List<ScenariosConfig.ScenarioConfig> getScenarios() {
+        return scenariosConfig.getScenarios();
     }
 
     public Map<String, Integer> getInitialResources() {
-        return getGameSettings().getInitialResources();
+        return getResources().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getInitialValue()));
     }
 
     public int getMaxScenariosPerGame() {
         return getGameSettings().getMaxScenariosPerGame();
     }
 
-    public GameConfig.ResourceChanges getResourceChanges() {
-        return getGameSettings().getResourceChanges();
+    public ResourcesConfig.ResourceChanges getResourceChanges() {
+        return resourcesConfig.getResourceChanges();
     }
 
     public int getRandomPositive() {
-        GameConfig.ResourceChanges changes = getResourceChanges();
+        ResourcesConfig.ResourceChanges changes = getResourceChanges();
         return random.nextInt(changes.getPositiveMax() - changes.getPositiveMin() + 1) + changes.getPositiveMin();
     }
 
     public int getRandomNegative() {
-        GameConfig.ResourceChanges changes = getResourceChanges();
+        ResourcesConfig.ResourceChanges changes = getResourceChanges();
         return -(random.nextInt(Math.abs(changes.getNegativeMin()) - Math.abs(changes.getNegativeMax()) + 1) + Math.abs(changes.getNegativeMax()));
     }
 
@@ -70,7 +78,7 @@ public class ConfigService {
     }
 
     public String getResourceDisplay(String resourceType, int amount) {
-        GameConfig.ResourceConfig resourceConfig = getResources().get(resourceType);
+        ResourcesConfig.ResourceConfig resourceConfig = getResources().get(resourceType);
         if (resourceConfig == null) return resourceType + " " + amount;
 
         String emoji = resourceConfig.getEmoji();

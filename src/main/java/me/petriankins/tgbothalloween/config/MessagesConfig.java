@@ -4,14 +4,11 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Data
 @Component
-@ConfigurationProperties(prefix = "game")
-public class GameConfig {
-    private GameSettings gameSettings;
-
-    @Data
-    public static class GameSettings {
-        private int maxScenariosPerGame;
-    }
+@ConfigurationProperties
+public class MessagesConfig {
+    private Map<String, String> messages;
 }
