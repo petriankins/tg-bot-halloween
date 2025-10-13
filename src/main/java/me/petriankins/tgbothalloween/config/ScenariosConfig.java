@@ -14,7 +14,7 @@ public class ScenariosConfig {
 
     @Data
     public static class ScenarioConfig {
-        private int id;
+        private long id;
         private String description;
         private List<ActionConfig> actions;
     }
@@ -25,5 +25,6 @@ public class ScenariosConfig {
         private String resultText;
         private String resource1change;
         private String resource2change;
+        private Long nextScenarioId;
     }
 }
