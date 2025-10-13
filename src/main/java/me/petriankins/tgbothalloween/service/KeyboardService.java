@@ -12,10 +12,10 @@ import java.util.List;
 @Service
 public class KeyboardService {
 
-    public InlineKeyboardMarkup createScenarioKeyboard(int scenarioIndex, ActionOption[] actions) {
+    public InlineKeyboardMarkup createScenarioKeyboard(long scenarioId, ActionOption[] actions) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         for (int i = 0; i < actions.length; i++) {
-            String callbackData = "STEP_" + scenarioIndex + "_ACTION_" + i;
+            String callbackData = "ACTION_" + scenarioId + "_OPTION_" + i;
             InlineKeyboardButton button = InlineKeyboardButton.builder()
                     .text(actions[i].label())
                     .callbackData(callbackData)

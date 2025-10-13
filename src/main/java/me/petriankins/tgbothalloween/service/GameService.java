@@ -12,7 +12,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GameService {
     private final Map<Long, GameState> userStates = new HashMap<>();
-    private final ScenarioService scenarioService;
     private final ConfigService configService;
 
     public void startGame(Long chatId) {
@@ -20,7 +19,7 @@ public class GameService {
         Map<String, Integer> initialResources = configService.getInitialResources();
         newState.resource1 = initialResources.get(ConfigConstants.RESOURCE_1);
         newState.resource2 = initialResources.get(ConfigConstants.RESOURCE_2);
-        newState.currentScenarioIndex = 0;
+        newState.currentScenarioId = 1;
 
         userStates.put(chatId, newState);
     }
@@ -31,9 +30,5 @@ public class GameService {
 
     public void endGame(Long chatId) {
         userStates.remove(chatId);
-    }
-
-    public boolean hasMoreScenarios(GameState state) {
-        return state.currentScenarioIndex < scenarioService.getTotalScenariosCount();
     }
 }

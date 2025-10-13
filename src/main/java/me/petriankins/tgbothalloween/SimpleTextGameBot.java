@@ -93,21 +93,19 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             return;
         }
 
-        // Store username in GameState
         if (state.username == null && callbackQuery.getFrom() != null) {
             state.username = callbackQuery.getFrom().getUserName();
         }
 
-        if (data.startsWith("STEP_")) {
+        if (data.startsWith("ACTION_")) {
             String[] parts = data.split("_");
-            int stepIndex = Integer.parseInt(parts[1]);
+            long scenarioId = Long.parseLong(parts[1]);
             int actionIndex = Integer.parseInt(parts[3]);
-            processAction(chatId, state, stepIndex, actionIndex);
+            processAction(chatId, state, scenarioId, actionIndex);
         }
     }
 
     private void startGame(Long chatId) {
-        scenarioService.resetScenarios();
         gameService.startGame(chatId);
 
         String welcomeMessage = configService.getMessages().get(ConfigConstants.WELCOME) +
@@ -117,28 +115,28 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         sendTextMessage(chatId, welcomeMessage);
         sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.LINE_BREAK));
 
-        showCurrentScenario(chatId);
+        showScenarioById(chatId, 1L); // Начинаем игру с первого сценария
     }
 
-    private void showCurrentScenario(Long chatId) {
+    private void showScenarioById(Long chatId, long scenarioId) {
         GameState state = gameService.getGameState(chatId);
         if (state == null) return;
 
-        if (!gameService.hasMoreScenarios(state)) {
-            endGame(chatId, configService.getMessages().get(ConfigConstants.ALL_SCENARIOS_COMPLETE));
-            return;
-        }
+        Scenario scenario = scenarioService.getScenarioById(scenarioId);
 
-        Scenario scenario = scenarioService.getNextScenario();
         if (scenario == null) {
-            endGame(chatId, configService.getMessages().get(ConfigConstants.ALL_SCENARIOS_COMPLETE));
+            // if the scenario is not found then it's the ned fo the game
+            endGame(chatId, configService.formatMessage(ConfigConstants.GAME_COMPLETE,
+                    ConfigConstants.RESOURCE_1, state.resource1,
+                    ConfigConstants.RESOURCE_2, state.resource2));
             return;
         }
 
         state.currentScenario = scenario;
+        state.currentScenarioId = scenario.id();
 
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
-                state.currentScenarioIndex,
+                scenario.id(),
                 scenario.actions()
         );
 
@@ -146,19 +144,15 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         sendPhotoWithKeyboard(chatId, picPath, scenario.description(), markup);
     }
 
-    private void processAction(Long chatId, GameState state, int stepIndex, int actionIndex) {
-        if (stepIndex != state.currentScenarioIndex) {
+    private void processAction(Long chatId, GameState state, long scenarioId, int actionIndex) {
+        if (state.currentScenario == null || scenarioId != state.currentScenario.id()) {
             sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.OLD_BUTTON));
             return;
         }
 
         Scenario scenario = state.currentScenario;
-        if (scenario == null) {
-            sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.SCENARIO_NOT_FOUND));
-            return;
-        }
-
         ActionOption[] actions = scenario.actions();
+
         if (actionIndex < 0 || actionIndex >= actions.length) {
             sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.INVALID_ACTION));
             return;
@@ -191,40 +185,27 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             return;
         }
 
-        state.currentScenarioIndex++;
+        Long nextScenarioId = chosenAction.nextScenarioId();
 
-        if (state.currentScenarioIndex >= configService.getMaxScenariosPerGame()) {
+        if (nextScenarioId == null) {
+            // Если следующего сценария нет, это конец ветки
+            // if there is not next scenario then it's the end of the branch
             endGame(chatId, configService.formatMessage(ConfigConstants.GAME_COMPLETE,
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2));
         } else {
-            // Add 5-second delay
+            // Going to the next scenario
             try {
-                Thread.sleep(DELAY);
+                Thread.sleep(DELAY * 1000L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            showCurrentScenario(chatId);
+            showScenarioById(chatId, nextScenarioId);
         }
     }
 
     private void endGame(Long chatId, String finalMessage) {
-        Message message = null;
-        try {
-            message = telegramClient.execute(SendMessage.builder()
-                    .chatId(chatId.toString())
-                    .text(finalMessage)
-                    .build());
-        } catch (TelegramApiException e) {
-            log.error("Failed to send end game message", e);
-        }
-
-        if (finalMessage.contains(configService.getMessages().get(ConfigConstants.GAME_COMPLETE))) {
-            String username = message != null && message.getFrom() != null ?
-                    message.getFrom().getUserName() : "unknown";
-            log.info("GAME COMPLETED by @{}", username);
-        }
-
+        sendTextMessage(chatId, finalMessage);
         gameService.endGame(chatId);
     }
 
@@ -246,7 +227,6 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
                 .text(text)
                 .replyMarkup(markup)
                 .build();
-
         try {
             telegramClient.execute(msg);
         } catch (TelegramApiException e) {
@@ -256,19 +236,22 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
 
     private void sendPhotoWithKeyboard(Long chatId, String picPath, String caption, InlineKeyboardMarkup markup) {
         try {
+            var resourceStream = getClass().getResourceAsStream("/pics/" + picPath);
+            if (resourceStream == null) {
+                log.error("Picture not found: {}", picPath);
+                sendMessageWithKeyboard(chatId, caption, markup);
+                return;
+            }
             SendPhoto photo = SendPhoto.builder()
                     .chatId(chatId.toString())
-                    .photo(new InputFile(getClass().getResourceAsStream("/pics/" + picPath), picPath))
+                    .photo(new InputFile(resourceStream, picPath))
                     .caption(caption)
                     .replyMarkup(markup)
                     .build();
             telegramClient.execute(photo);
         } catch (TelegramApiException e) {
             log.error("Failed to send photo with keyboard", e);
-            // Fallback to text message if image fails
             sendMessageWithKeyboard(chatId, caption, markup);
         }
     }
-
-
 }

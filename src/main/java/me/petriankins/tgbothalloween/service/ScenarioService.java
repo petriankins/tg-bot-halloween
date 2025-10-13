@@ -5,62 +5,24 @@ import lombok.RequiredArgsConstructor;
 import me.petriankins.tgbothalloween.model.Scenario;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ScenarioService {
 
-    private final ConfigService configService;
     private final ScenarioConstructor scenarioConstructor;
-    private final Set<Integer> usedIndices = new HashSet<>();
-    private final Random random = new Random();
-
-    private List<Scenario> scenarioList;
-    private int currentIndex = 0;
+    private Map<Long, Scenario> scenarioMap;
 
     @PostConstruct
     private void init() {
-        scenarioList = scenarioConstructor.getScenarios();
+        scenarioMap = scenarioConstructor.getScenarios().stream()
+                .collect(Collectors.toMap(Scenario::id, Function.identity()));
     }
 
-    public int getTotalScenariosCount() {
-        return scenarioList.size();
-    }
-
-    public Scenario getNextScenario() {
-        if (configService.isRandomScenarios()) {
-            return getRandomScenario();
-        }
-        return getOrderedScenario();
-    }
-
-    private Scenario getRandomScenario() {
-        if (usedIndices.size() >= scenarioList.size()) {
-            return null;
-        }
-
-        while (true) {
-            int index = random.nextInt(scenarioList.size());
-            if (!usedIndices.contains(index)) {
-                usedIndices.add(index);
-                return scenarioList.get(index);
-            }
-        }
-    }
-
-    private Scenario getOrderedScenario() {
-        if (currentIndex >= scenarioList.size()) {
-            return null;
-        }
-        return scenarioList.get(currentIndex++);
-    }
-
-    public void resetScenarios() {
-        usedIndices.clear();
-        currentIndex = 0;
+    public Scenario getScenarioById(long id) {
+        return scenarioMap.get(id);
     }
 }

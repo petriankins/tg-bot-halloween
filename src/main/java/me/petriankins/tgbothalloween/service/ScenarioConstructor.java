@@ -42,16 +42,21 @@ public class ScenarioConstructor {
         String resultText = actionConfig.getResultText();
         String resource1change = actionConfig.getResource1change();
         String resource2change = actionConfig.getResource2change();
+        Long nextScenarioId = actionConfig.getNextScenarioId();
 
         return ActionOption.builder()
                 .label(label)
                 .resultText(resultText)
                 .resource1change(getResourceChange(resource1change))
                 .resource2change(getResourceChange(resource2change))
+                .nextScenarioId(nextScenarioId)
                 .build();
     }
 
     private int getResourceChange(String changeType) {
+        if (changeType == null) {
+            return 0;
+        }
         return switch (changeType) {
             case ConfigConstants.POSITIVE -> configService.getRandomPositive();
             case ConfigConstants.NEGATIVE -> configService.getRandomNegative();
