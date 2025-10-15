@@ -2,13 +2,13 @@ resources:
   resource1:
     name: "Здоровье"
     emoji: "❤️"
-    initialValue: 100
+    initialValue: 80
   resource2:
     name: "Рассудок"
     emoji: "🧠"
-    initialValue: 100
+    initialValue: 80
 resourceChanges:
-  positiveMin: 10
-  positiveMax: 25
-  negativeMin: -25
-  negativeMax: -10
+  positiveMin: 5
+  positiveMax: 15
+  negativeMin: -30
+  negativeMax: -15
