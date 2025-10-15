@@ -17,6 +17,7 @@ public class ScenariosConfig {
         private long id;
         private String description;
         private List<ActionConfig> actions;
+        private String requiredItem;
     }
 
     @Data
@@ -26,5 +27,14 @@ public class ScenariosConfig {
         private String resource1change;
         private String resource2change;
         private Long nextScenarioId;
+        private String givesItem;
+        private String requiredItem;
+        private ActionRequirement requires;
+    }
+
+    @Data
+    public static class ActionRequirement {
+        private String resource;
+        private int greaterThan;
     }
 }

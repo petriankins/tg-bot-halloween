@@ -34,6 +34,7 @@ public class ScenarioConstructor {
                 .id(id)
                 .description(description)
                 .actions(actions)
+                .requiredItem(scenarioConfig.getRequiredItem())
                 .build();
     }
 
@@ -50,6 +51,9 @@ public class ScenarioConstructor {
                 .resource1change(getResourceChange(resource1change))
                 .resource2change(getResourceChange(resource2change))
                 .nextScenarioId(nextScenarioId)
+                .givesItem(actionConfig.getGivesItem())
+                .requiredItem(actionConfig.getRequiredItem())
+                .requires(actionConfig.getRequires())
                 .build();
     }
 

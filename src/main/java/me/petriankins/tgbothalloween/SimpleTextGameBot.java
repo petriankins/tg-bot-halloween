@@ -3,15 +3,12 @@ package me.petriankins.tgbothalloween;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.petriankins.tgbothalloween.config.ScenariosConfig;
 import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import me.petriankins.tgbothalloween.model.ActionOption;
 import me.petriankins.tgbothalloween.model.GameState;
 import me.petriankins.tgbothalloween.model.Scenario;
-import me.petriankins.tgbothalloween.service.BotService;
-import me.petriankins.tgbothalloween.service.ConfigService;
-import me.petriankins.tgbothalloween.service.GameService;
-import me.petriankins.tgbothalloween.service.KeyboardService;
-import me.petriankins.tgbothalloween.service.ScenarioService;
+import me.petriankins.tgbothalloween.service.*;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.BotSession;
@@ -19,6 +16,7 @@ import org.telegram.telegrambots.longpolling.interfaces.LongPollingUpdateConsume
 import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -108,14 +106,14 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
     private void startGame(Long chatId) {
         gameService.startGame(chatId);
 
-        String welcomeMessage = configService.getMessages().get(ConfigConstants.WELCOME) +
-                configService.getResourceDisplay(ConfigConstants.RESOURCE_1, configService.getInitialResources().get(ConfigConstants.RESOURCE_1)) + ", " +
+        String welcomeMessage = configService.getMessages().get(ConfigConstants.WELCOME) + "\n\n" +
+                configService.getResourceDisplay(ConfigConstants.RESOURCE_1, configService.getInitialResources().get(ConfigConstants.RESOURCE_1)) + "\n" +
                 configService.getResourceDisplay(ConfigConstants.RESOURCE_2, configService.getInitialResources().get(ConfigConstants.RESOURCE_2));
 
         sendTextMessage(chatId, welcomeMessage);
         sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.LINE_BREAK));
 
-        showScenarioById(chatId, 1L); // Начинаем игру с первого сценария
+        showScenarioById(chatId, 1L); // Start game from scenario with ID 1
     }
 
     private void showScenarioById(Long chatId, long scenarioId) {
@@ -125,8 +123,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         Scenario scenario = scenarioService.getScenarioById(scenarioId);
 
         if (scenario == null) {
-            // if the scenario is not found then it's the ned fo the game
-            endGame(chatId, configService.formatMessage(ConfigConstants.GAME_COMPLETE,
+            endGame(chatId, configService.formatMessage("gameWinWithPromo",
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2));
             return;
@@ -160,6 +157,22 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
 
         ActionOption chosenAction = actions[actionIndex];
 
+        if (chosenAction.requiredItem() != null
+                && !state.inventory.contains(chosenAction.requiredItem())) {
+            sendTextMessage(chatId, configService.getMessages().get("actionRequiresItem"));
+            return;
+        }
+
+        ScenariosConfig.ActionRequirement requirement = chosenAction.requires();
+        if (requirement != null) {
+            int currentResourceValue = requirement.getResource().equals(ConfigConstants.RESOURCE_1) ? state.resource1 : state.resource2;
+            if (currentResourceValue <= requirement.getGreaterThan()) {
+                String messageKey = requirement.getResource().equals(ConfigConstants.RESOURCE_1) ? "requirementNotMetResource1" : "requirementNotMetResource2";
+                sendTextMessage(chatId, configService.getMessages().get(messageKey));
+                return;
+            }
+        }
+
         log.info("USER CHOICE by @{}: {}",
                 state.username != null ? state.username : "unknown",
                 chosenAction.label());
@@ -170,7 +183,14 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         if (state.resource1 > 100) state.resource1 = 100;
         if (state.resource2 > 100) state.resource2 = 100;
 
-        String finalText = chosenAction.resultText() +
+        String resultText = chosenAction.resultText();
+
+        if (chosenAction.givesItem() != null) {
+            state.inventory.add(chosenAction.givesItem());
+            resultText += configService.formatMessage("itemAcquired", "itemName", chosenAction.givesItem());
+        }
+
+        String finalText = resultText +
                 "\n\n\nТеперь у тебя:\n" +
                 configService.getResourceDisplay(ConfigConstants.RESOURCE_1, state.resource1) + "\n" +
                 configService.getResourceDisplay(ConfigConstants.RESOURCE_2, state.resource2);
@@ -188,13 +208,19 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         Long nextScenarioId = chosenAction.nextScenarioId();
 
         if (nextScenarioId == null) {
-            // Если следующего сценария нет, это конец ветки
-            // if there is not next scenario then it's the end of the branch
-            endGame(chatId, configService.formatMessage(ConfigConstants.GAME_COMPLETE,
+            endGame(chatId, configService.formatMessage("gameWinWithPromo",
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2));
         } else {
-            // Going to the next scenario
+            Scenario nextScenario = scenarioService.getScenarioById(nextScenarioId);
+            if (nextScenario != null
+                    && nextScenario.requiredItem() != null
+                    && !state.inventory.contains(nextScenario.requiredItem())) {
+                sendTextMessage(chatId, configService.getMessages().get("pathBlocked"));
+                // staying on the current step
+                return;
+            }
+
             try {
                 Thread.sleep(DELAY * 1000L);
             } catch (InterruptedException e) {
@@ -213,6 +239,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         SendMessage msg = SendMessage.builder()
                 .chatId(chatId.toString())
                 .text(text)
+                .parseMode(ParseMode.MARKDOWN)
                 .build();
         try {
             telegramClient.execute(msg);
@@ -226,6 +253,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
                 .chatId(chatId.toString())
                 .text(text)
                 .replyMarkup(markup)
+                .parseMode(ParseMode.MARKDOWN)
                 .build();
         try {
             telegramClient.execute(msg);
@@ -247,6 +275,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
                     .photo(new InputFile(resourceStream, picPath))
                     .caption(caption)
                     .replyMarkup(markup)
+                    .parseMode(ParseMode.MARKDOWN)
                     .build();
             telegramClient.execute(photo);
         } catch (TelegramApiException e) {
@@ -255,3 +284,4 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         }
     }
 }
+

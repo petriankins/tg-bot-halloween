@@ -19,7 +19,7 @@ public class GameService {
         Map<String, Integer> initialResources = configService.getInitialResources();
         newState.resource1 = initialResources.get(ConfigConstants.RESOURCE_1);
         newState.resource2 = initialResources.get(ConfigConstants.RESOURCE_2);
-        newState.currentScenarioId = 1;
+        newState.currentScenarioId = 1; // the game always starts with the scenario with ID 1
 
         userStates.put(chatId, newState);
     }
