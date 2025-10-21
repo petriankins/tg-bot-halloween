@@ -7,7 +7,9 @@ import me.petriankins.tgbothalloween.model.ActionOption;
 import me.petriankins.tgbothalloween.model.Scenario;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,7 +26,8 @@ public class ScenarioConstructor {
     private Scenario buildScenario(ScenariosConfig.ScenarioConfig scenarioConfig) {
         long id = scenarioConfig.getId();
         String description = scenarioConfig.getDescription();
-        List<ScenariosConfig.ActionConfig> actionsData = scenarioConfig.getActions();
+        List<ScenariosConfig.ActionConfig> actionsData = Optional.ofNullable(scenarioConfig.getActions())
+                .orElse(Collections.emptyList());
 
         ActionOption[] actions = actionsData.stream()
                 .map(this::buildAction)
