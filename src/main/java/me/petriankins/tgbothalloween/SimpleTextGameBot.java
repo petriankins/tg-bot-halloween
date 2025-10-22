@@ -17,15 +17,20 @@ import org.telegram.telegrambots.longpolling.starter.AfterBotRegistration;
 import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
+import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+
+import java.util.List;
 
 @Slf4j
 @Component
@@ -49,6 +54,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
     @AfterBotRegistration
     public void afterRegistration(BotSession botSession) {
         log.info("Registered bot running state is: {}", botSession.isRunning());
+        setBotMenu();
     }
 
     @Override
@@ -281,6 +287,24 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         } catch (TelegramApiException e) {
             log.error("Failed to send photo with keyboard", e);
             sendMessageWithKeyboard(chatId, caption, markup);
+        }
+    }
+
+    private void setBotMenu() {
+        BotCommand startCommand = BotCommand.builder()
+                .command("start")
+                .description("Начать игру заново")
+                .build();
+
+        SetMyCommands setMyCommands = SetMyCommands.builder()
+                .commands(List.of(startCommand))
+                .build();
+
+        try {
+            telegramClient.execute(setMyCommands);
+            log.info("Bot menu updated with /start command.");
+        } catch (TelegramApiException e) {
+            log.error("Failed to set bot menu", e);
         }
     }
 }
