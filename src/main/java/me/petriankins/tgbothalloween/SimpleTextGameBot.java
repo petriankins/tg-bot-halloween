@@ -20,6 +20,8 @@ import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageMedia;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -36,13 +38,15 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
-    public static final int DELAY = 1;
+
+    public static final String LINE_BREAK = "\n\n";
 
     private final ScenarioService scenarioService;
     private final GameService gameService;
     private final KeyboardService keyboardService;
     private final ConfigService configService;
     private final BotService botService;
+    private final ResourcesService resourcesService;
 
     private TelegramClient telegramClient;
 
@@ -102,66 +106,60 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         }
 
         if (data.startsWith("ACTION_")) {
-            String[] parts = data.split("_");
-            long scenarioId = Long.parseLong(parts[1]);
-            int actionIndex = Integer.parseInt(parts[3]);
-            processAction(chatId, state, scenarioId, actionIndex);
+            processAction(callbackQuery, state);
         }
     }
 
     private void startGame(Long chatId) {
         gameService.startGame(chatId);
-
-        String welcomeMessage = configService.getMessages().get(ConfigConstants.WELCOME) + "\n\n" +
-                configService.getResourceDisplay(ConfigConstants.RESOURCE_1, configService.getInitialResources().get(ConfigConstants.RESOURCE_1)) + "\n" +
-                configService.getResourceDisplay(ConfigConstants.RESOURCE_2, configService.getInitialResources().get(ConfigConstants.RESOURCE_2));
-
-        sendTextMessage(chatId, welcomeMessage);
-        sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.LINE_BREAK));
-
-        showScenarioById(chatId, 1L); // Start game from scenario with ID 1
-    }
-
-    private void showScenarioById(Long chatId, long scenarioId) {
         GameState state = gameService.getGameState(chatId);
-        if (state == null) return;
 
-        Scenario scenario = scenarioService.getScenarioById(scenarioId);
+        String welcomeMessage = resourcesService.getInitialResourcesLine()
+                + LINE_BREAK
+                + configService.getMessages()
+                .get(ConfigConstants.WELCOME);
 
-        if (scenario == null) {
-            endGame(chatId, configService.formatMessage("gameWinWithPromo",
-                    ConfigConstants.RESOURCE_1, state.resource1,
-                    ConfigConstants.RESOURCE_2, state.resource2));
+        Scenario firstScenario = scenarioService.getScenarioById(1L);
+        if (firstScenario == null) {
+            log.error("Starting scenario with ID 1 not found!");
+            sendTextMessage(chatId, "Ошибка: стартовый сценарий не найден. Обратитесь к администратору.");
             return;
         }
 
-        state.currentScenario = scenario;
-        state.currentScenarioId = scenario.id();
+        state.currentScenario = firstScenario;
+        state.currentScenarioId = firstScenario.id();
+
+        String combinedText = welcomeMessage + LINE_BREAK +
+                configService.getMessages().get(ConfigConstants.LINE_BREAK)
+                + LINE_BREAK
+                + firstScenario.description();
 
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
-                scenario.id(),
-                scenario.actions()
+                firstScenario.id(),
+                firstScenario.actions()
         );
 
-        String picPath = scenario.id() + ".png";
-        sendPhotoWithKeyboard(chatId, picPath, scenario.description(), markup);
+        String picPath = firstScenario.id() + ".png";
+        sendPhotoWithKeyboard(chatId, picPath, combinedText, markup);
     }
 
-    private void processAction(Long chatId, GameState state, long scenarioId, int actionIndex) {
+    private void processAction(CallbackQuery callbackQuery, GameState state) {
+        Long chatId = callbackQuery.getMessage()
+                .getChatId();
+        Integer messageId = callbackQuery.getMessage()
+                .getMessageId();
+        String data = callbackQuery.getData();
+
+        String[] parts = data.split("_");
+        long scenarioId = Long.parseLong(parts[1]);
+        int actionIndex = Integer.parseInt(parts[3]);
+
         if (state.currentScenario == null || scenarioId != state.currentScenario.id()) {
             sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.OLD_BUTTON));
             return;
         }
 
-        Scenario scenario = state.currentScenario;
-        ActionOption[] actions = scenario.actions();
-
-        if (actionIndex < 0 || actionIndex >= actions.length) {
-            sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.INVALID_ACTION));
-            return;
-        }
-
-        ActionOption chosenAction = actions[actionIndex];
+        ActionOption chosenAction = state.currentScenario.actions()[actionIndex];
 
         if (chosenAction.requiredItem() != null
                 && !state.inventory.contains(chosenAction.requiredItem())) {
@@ -196,44 +194,65 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             resultText += configService.formatMessage("itemAcquired", "itemName", chosenAction.givesItem());
         }
 
-        String finalText = resultText +
-                "\n\n\nТеперь у тебя:\n" +
-                configService.getResourceDisplay(ConfigConstants.RESOURCE_1, state.resource1) + "\n" +
-                configService.getResourceDisplay(ConfigConstants.RESOURCE_2, state.resource2);
-
-        sendTextMessage(chatId, finalText);
-        sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.LINE_BREAK));
+        String finalText =
+                resourcesService.getCurrentResourcesLine(state)
+                        + LINE_BREAK
+                        + resultText;
 
         if (state.resource1 <= 0 || state.resource2 <= 0) {
-            endGame(chatId, configService.formatMessage(ConfigConstants.GAME_OVER,
+            String gameOverMessage = configService.formatMessage(ConfigConstants.GAME_OVER,
                     ConfigConstants.RESOURCE_1, state.resource1,
-                    ConfigConstants.RESOURCE_2, state.resource2));
+                    ConfigConstants.RESOURCE_2, state.resource2);
+            editMessageCaption(chatId, messageId, gameOverMessage, null);
+            gameService.endGame(chatId);
             return;
         }
 
         Long nextScenarioId = chosenAction.nextScenarioId();
 
         if (nextScenarioId == null) {
-            endGame(chatId, configService.formatMessage("gameWinWithPromo",
+            String gameWinMessage = configService.formatMessage("gameWinWithPromo",
                     ConfigConstants.RESOURCE_1, state.resource1,
-                    ConfigConstants.RESOURCE_2, state.resource2));
-        } else {
-            Scenario nextScenario = scenarioService.getScenarioById(nextScenarioId);
-            if (nextScenario != null
-                    && nextScenario.requiredItem() != null
-                    && !state.inventory.contains(nextScenario.requiredItem())) {
-                sendTextMessage(chatId, configService.getMessages().get("pathBlocked"));
-                // staying on the current step
-                return;
-            }
-
-            try {
-                Thread.sleep(DELAY * 1000L);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            showScenarioById(chatId, nextScenarioId);
+                    ConfigConstants.RESOURCE_2, state.resource2);
+            editMessageCaption(chatId, messageId, gameWinMessage, null);
+            gameService.endGame(chatId);
+            return;
         }
+
+        Scenario nextScenario = scenarioService.getScenarioById(nextScenarioId);
+        if (nextScenario == null) {
+            endGame(chatId, "История на этом заканчивается...");
+            return;
+        }
+
+        if (nextScenario.requiredItem() != null && !state.inventory.contains(nextScenario.requiredItem())) {
+            String pathBlockedMessage = configService.getMessages().get("pathBlocked");
+            String combinedCaption = finalText + LINE_BREAK + pathBlockedMessage;
+
+            InlineKeyboardMarkup currentMarkup = keyboardService.createScenarioKeyboard(
+                    state.currentScenario.id(),
+                    state.currentScenario.actions()
+            );
+            editMessageCaption(chatId, messageId, combinedCaption, currentMarkup);
+            return;
+        }
+
+        state.currentScenario = nextScenario;
+        state.currentScenarioId = nextScenario.id();
+
+        String separator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
+        String combinedCaption = finalText + LINE_BREAK + separator + LINE_BREAK + nextScenario.description();
+
+        showScenarioByEditing(chatId, messageId, nextScenario, combinedCaption);
+    }
+
+    private void showScenarioByEditing(Long chatId, Integer messageId, Scenario scenario, String caption) {
+        InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
+                scenario.id(),
+                scenario.actions()
+        );
+        String picPath = scenario.id() + ".png";
+        editMessageMedia(chatId, messageId, picPath, caption, markup);
     }
 
     private void endGame(Long chatId, String finalMessage) {
@@ -289,6 +308,48 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             sendMessageWithKeyboard(chatId, caption, markup);
         }
     }
+
+    private void editMessageCaption(Long chatId, Integer messageId, String caption, InlineKeyboardMarkup markup) {
+        EditMessageCaption editMessage = EditMessageCaption.builder()
+                .chatId(chatId.toString())
+                .messageId(messageId)
+                .caption(caption)
+                .replyMarkup(markup)
+                .parseMode(ParseMode.MARKDOWN)
+                .build();
+        try {
+            telegramClient.execute(editMessage);
+        } catch (TelegramApiException e) {
+            log.warn("Failed to edit message caption. It might be the same as the old one. Error: {}", e.getMessage());
+        }
+    }
+
+    private void editMessageMedia(Long chatId, Integer messageId, String picPath, String caption, InlineKeyboardMarkup markup) {
+        try {
+            var resourceStream = getClass().getResourceAsStream("/pics/" + picPath);
+            if (resourceStream == null) {
+                log.warn("Picture not found for edit: {}. Editing caption instead.", picPath);
+                editMessageCaption(chatId, messageId, caption, markup);
+                return;
+            }
+
+            InputMediaPhoto media = new InputMediaPhoto(resourceStream, picPath);
+            media.setCaption(caption);
+            media.setParseMode(ParseMode.MARKDOWN);
+
+            EditMessageMedia editMessage = EditMessageMedia.builder()
+                    .chatId(chatId.toString())
+                    .messageId(messageId)
+                    .media(media)
+                    .replyMarkup(markup)
+                    .build();
+            telegramClient.execute(editMessage);
+        } catch (TelegramApiException e) {
+            log.error("Failed to edit message media. Falling back to caption edit.", e);
+            editMessageCaption(chatId, messageId, caption, markup);
+        }
+    }
+
 
     private void setBotMenu() {
         BotCommand startCommand = BotCommand.builder()
