@@ -5,6 +5,8 @@ import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import me.petriankins.tgbothalloween.model.GameState;
 import org.springframework.stereotype.Service;
 
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class ResourcesService {
@@ -23,5 +25,16 @@ public class ResourcesService {
         return configService.getResourceDisplay(ConfigConstants.RESOURCE_1, state.resource1)
                 + RESOURCES_SEPARATOR
                 + configService.getResourceDisplay(ConfigConstants.RESOURCE_2, state.resource2);
+    }
+
+    public String getCurrentInventoryLine(GameState state) {
+        if (state.inventory == null || state.inventory.isEmpty()) {
+            return "";
+        }
+        String itemsList = state.inventory.stream()
+                .map(configService::getItemName)
+                .collect(Collectors.joining(", "));
+
+        return configService.formatMessage("inventoryLine", "itemsList", itemsList);
     }
 }
