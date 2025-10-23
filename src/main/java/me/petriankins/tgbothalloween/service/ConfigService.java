@@ -38,12 +38,23 @@ public class ConfigService {
         return scenariosConfig.getScenarios();
     }
 
+    public Map<String, String> getItems() {
+        return scenariosConfig.getItems();
+    }
+
+    public String getItemName(String itemId) {
+        if (itemId == null) {
+            return "Неизвестный предмет";
+        }
+        return getItems().getOrDefault(itemId, itemId);
+    }
+
     public Map<String, Integer> getInitialResources() {
         return getResources().entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getInitialValue()));
     }
 
-    public int getMaxScenariosPerGame() {
+    public int getMaxScenariosPerGame() { // fixme
         return getGameSettings().getMaxScenariosPerGame();
     }
 
@@ -86,7 +97,7 @@ public class ConfigService {
         return emoji + " " + name + " " + amount;
     }
 
-    public boolean isRandomScenarios() {
+    public boolean isRandomScenarios() { // fixme
         return Boolean.parseBoolean(getMessages().getOrDefault(ConfigConstants.RANDOM_SCENARIOS, "true"));
     }
 }

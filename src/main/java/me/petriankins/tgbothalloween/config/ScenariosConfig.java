@@ -5,12 +5,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Component
 @ConfigurationProperties
 public class ScenariosConfig {
     private List<ScenarioConfig> scenarios;
+    private Map<String, String> items;
 
     @Data
     public static class ScenarioConfig {
