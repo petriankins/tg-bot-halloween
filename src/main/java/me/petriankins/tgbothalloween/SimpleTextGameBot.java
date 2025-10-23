@@ -136,7 +136,8 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
 
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
                 firstScenario.id(),
-                firstScenario.actions()
+                firstScenario.actions(),
+                state
         );
 
         String picPath = firstScenario.id() + ".png";
@@ -163,7 +164,9 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
 
         if (chosenAction.requiredItem() != null
                 && !state.inventory.contains(chosenAction.requiredItem())) {
-            sendTextMessage(chatId, configService.getMessages().get("actionRequiresItem"));
+            String requiredItemName = configService.getItemName(chosenAction.requiredItem());
+            String message = configService.formatMessage("actionRequiresItem", "itemName", requiredItemName);
+            sendTextMessage(chatId, message);
             return;
         }
 
@@ -190,12 +193,18 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         String resultText = chosenAction.resultText();
 
         if (chosenAction.givesItem() != null) {
-            state.inventory.add(chosenAction.givesItem());
-            resultText += configService.formatMessage("itemAcquired", "itemName", chosenAction.givesItem());
+            String itemId = chosenAction.givesItem();
+            state.inventory.add(itemId);
+            String itemName = configService.getItemName(itemId);
+            resultText += configService.formatMessage("itemAcquired", "itemName", itemName);
         }
 
+        String resourcesLine = resourcesService.getCurrentResourcesLine(state);
+        String inventoryLine = resourcesService.getCurrentInventoryLine(state);
+
         String finalText =
-                resourcesService.getCurrentResourcesLine(state)
+                resourcesLine
+                        + inventoryLine
                         + LINE_BREAK
                         + resultText;
 
@@ -203,6 +212,8 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             String gameOverMessage = configService.formatMessage(ConfigConstants.GAME_OVER,
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2);
+
+            gameOverMessage = inventoryLine + LINE_BREAK + gameOverMessage;
             editMessageCaption(chatId, messageId, gameOverMessage, null);
             gameService.endGame(chatId);
             return;
@@ -214,6 +225,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             String gameWinMessage = configService.formatMessage("gameWinWithPromo",
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2);
+            gameWinMessage = inventoryLine + LINE_BREAK + gameWinMessage;
             editMessageCaption(chatId, messageId, gameWinMessage, null);
             gameService.endGame(chatId);
             return;
@@ -226,12 +238,15 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         }
 
         if (nextScenario.requiredItem() != null && !state.inventory.contains(nextScenario.requiredItem())) {
-            String pathBlockedMessage = configService.getMessages().get("pathBlocked");
+            String requiredItemName = configService.getItemName(nextScenario.requiredItem());
+            String pathBlockedMessage = configService.formatMessage("pathBlocked", "itemName", requiredItemName);
+
             String combinedCaption = finalText + LINE_BREAK + pathBlockedMessage;
 
             InlineKeyboardMarkup currentMarkup = keyboardService.createScenarioKeyboard(
                     state.currentScenario.id(),
-                    state.currentScenario.actions()
+                    state.currentScenario.actions(),
+                    state
             );
             editMessageCaption(chatId, messageId, combinedCaption, currentMarkup);
             return;
@@ -243,13 +258,14 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         String separator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
         String combinedCaption = finalText + LINE_BREAK + separator + LINE_BREAK + nextScenario.description();
 
-        showScenarioByEditing(chatId, messageId, nextScenario, combinedCaption);
+        showScenarioByEditing(chatId, messageId, nextScenario, combinedCaption, state);
     }
 
-    private void showScenarioByEditing(Long chatId, Integer messageId, Scenario scenario, String caption) {
+    private void showScenarioByEditing(Long chatId, Integer messageId, Scenario scenario, String caption, GameState state) {
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
                 scenario.id(),
-                scenario.actions()
+                scenario.actions(),
+                state
         );
         String picPath = scenario.id() + ".png";
         editMessageMedia(chatId, messageId, picPath, caption, markup);
