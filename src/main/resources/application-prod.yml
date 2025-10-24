@@ -1,0 +1,17 @@
+spring:
+  config:
+    import:
+      - "bot.yml"
+      - "scenarios.yml"
+      - "resources.yml"
+      - "messages.yml"
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+game:
+  gameSettings:
+    maxScenariosPerGame: 15
