@@ -293,6 +293,19 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         String separator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
         String combinedCaption = finalText + LINE_BREAK + separator + LINE_BREAK + nextScenario.description();
 
+        if (nextScenario.actions() == null || nextScenario.actions().length == 0) {
+            // it's the ending (no actions)
+            long endingId = nextScenario.id();
+            saveGameResult(state, endingId);
+
+            // final screen without buttons
+            String picPath = nextScenario.id() + ".png";
+            editMessageMedia(chatId, messageId, picPath, combinedCaption, null);
+
+            gameService.endGame(chatId);
+            return;
+        }
+
         showScenarioByEditing(chatId, messageId, nextScenario, combinedCaption, state);
     }
 
