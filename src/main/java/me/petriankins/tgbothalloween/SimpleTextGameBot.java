@@ -5,10 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.petriankins.tgbothalloween.config.ScenariosConfig;
 import me.petriankins.tgbothalloween.constants.ConfigConstants;
+import me.petriankins.tgbothalloween.db.GameCompletion;
+import me.petriankins.tgbothalloween.db.GameCompletionRepository;
 import me.petriankins.tgbothalloween.model.ActionOption;
 import me.petriankins.tgbothalloween.model.GameState;
 import me.petriankins.tgbothalloween.model.Scenario;
 import me.petriankins.tgbothalloween.service.*;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.BotSession;
@@ -25,6 +29,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageMe
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.media.InputMediaPhoto;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -47,6 +52,8 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
     private final ConfigService configService;
     private final BotService botService;
     private final ResourcesService resourcesService;
+
+    private final GameCompletionRepository gameCompletionRepository;
 
     private TelegramClient telegramClient;
 
@@ -83,9 +90,21 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
     private void handleMessage(Message message) {
         Long chatId = message.getChatId();
         String text = message.getText();
+        User from = message.getFrom();
+
+        if (isAdmin(from.getId())) {
+            if ("/stats".equalsIgnoreCase(text)) {
+                handleStatsCommand(chatId);
+                return;
+            }
+            if (text.startsWith("/sendtop5")) {
+                handleSendTop5Command(chatId, text);
+                return;
+            }
+        }
 
         if ("/start".equalsIgnoreCase(text)) {
-            startGame(chatId);
+            startGame(chatId, from);
         } else {
             sendTextMessage(chatId, configService.getMessages().get(ConfigConstants.UNKNOWN_COMMAND));
         }
@@ -93,6 +112,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
 
     private void handleCallback(CallbackQuery callbackQuery) {
         Long chatId = callbackQuery.getMessage().getChatId();
+        User from = callbackQuery.getFrom();
         String data = callbackQuery.getData();
 
         GameState state = gameService.getGameState(chatId);
@@ -101,8 +121,11 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
             return;
         }
 
-        if (state.username == null && callbackQuery.getFrom() != null) {
-            state.username = callbackQuery.getFrom().getUserName();
+        if (state.userId == null) {
+            state.userId = from.getId();
+        }
+        if (state.username == null || !state.username.equals(from.getUserName())) {
+            state.username = from.getUserName();
         }
 
         if (data.startsWith("ACTION_")) {
@@ -110,9 +133,12 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         }
     }
 
-    private void startGame(Long chatId) {
+    private void startGame(Long chatId, User from) {
         gameService.startGame(chatId);
         GameState state = gameService.getGameState(chatId);
+
+        state.userId = from.getId();
+        state.username = from.getUserName();
 
         String welcomeMessage = resourcesService.getInitialResourcesLine()
                 + LINE_BREAK
@@ -209,6 +235,10 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
                         + resultText;
 
         if (state.resource1 <= 0 || state.resource2 <= 0) {
+            // todo handle death ending (resources <= 0)
+            long endingId = 999L;
+            saveGameResult(state, endingId);
+
             String gameOverMessage = configService.formatMessage(ConfigConstants.GAME_OVER,
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2);
@@ -222,6 +252,9 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         Long nextScenarioId = chosenAction.nextScenarioId();
 
         if (nextScenarioId == null) {
+            long endingId = state.currentScenarioId;
+            saveGameResult(state, endingId);
+
             String gameWinMessage = configService.formatMessage("gameWinWithPromo",
                     ConfigConstants.RESOURCE_1, state.resource1,
                     ConfigConstants.RESOURCE_2, state.resource2);
@@ -233,7 +266,9 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
 
         Scenario nextScenario = scenarioService.getScenarioById(nextScenarioId);
         if (nextScenario == null) {
-            endGame(chatId, "История на этом заканчивается...");
+            log.error("Scenario not found by ID: {}", nextScenarioId);
+            saveGameResult(state, -1L);
+            endGame(chatId, "История на этом заканчивается... (Ошибка сценария)");
             return;
         }
 
@@ -261,6 +296,145 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         showScenarioByEditing(chatId, messageId, nextScenario, combinedCaption, state);
     }
 
+
+    private int calculateScore(long endingId, GameState state) {
+        int baseScore = 0;
+        switch ((int) endingId) {
+            case 200: // Истинная хорошая концовка
+                baseScore = 100;
+                break;
+            case 201: // Концовка силы (Особая)
+                baseScore = 150;
+                break;
+            case 100: // Нейтральная
+            case 102: // Нейтральная (наемник)
+                baseScore = 50;
+                break;
+            case 101: // Плохая
+                baseScore = 10;
+                break;
+            case 999: // Смерть
+            default:
+                baseScore = 0; // 0 очков за смерть или плохую концовку
+                break;
+        }
+        int r1 = Math.max(0, state.resource1);
+        int r2 = Math.max(0, state.resource2);
+        return baseScore + r1 + r2;
+    }
+
+    private void saveGameResult(GameState state, long endingId) {
+        if (state.userId == null) {
+            log.error("Cannot save game result: userId is null. ChatId: {}", state.currentScenarioId);
+            return;
+        }
+
+        try {
+            int score = calculateScore(endingId, state);
+
+            GameCompletion completion = new GameCompletion();
+            completion.setTelegramUserId(state.userId);
+            completion.setUsername(state.username);
+            completion.setScore(score);
+            completion.setResource1(state.resource1);
+            completion.setResource2(state.resource2);
+            completion.setEndingId(endingId);
+
+            gameCompletionRepository.save(completion);
+            log.info("Game result saved for user @{} (ID: {}) with score {}", state.username, state.userId, score);
+
+        } catch (Exception e) {
+            log.error("Failed to save game result for user ID " + state.userId, e);
+        }
+    }
+
+    private boolean isAdmin(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        Long adminId = botService.getAdminId();
+        return adminId != null && adminId.equals(userId);
+    }
+
+    private void handleStatsCommand(Long chatId) {
+        log.info("Admin command /stats executed by chatId {}", chatId);
+        try {
+            // Запрашиваем топ-10, сортируя по очкам (score)
+            PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "score"));
+            List<GameCompletion> leaderboard = gameCompletionRepository.findAllByOrderByScoreDesc(pageable);
+
+            if (leaderboard.isEmpty()) {
+                sendTextMessage(chatId, "Пока никто не закончил игру.");
+                return;
+            }
+
+            StringBuilder sb = new StringBuilder("🏆 *Лидерборд (Топ-10)* 🏆\n\n");
+            int rank = 1;
+            for (GameCompletion entry : leaderboard) {
+                sb.append(String.format("%d. *%d очков* - @%s (❤️%d, 🧠%d) - Концовка: %d\n",
+                        rank++,
+                        entry.getScore(),
+                        entry.getUsername() != null ? entry.getUsername() : "id:" + entry.getTelegramUserId(),
+                        entry.getResource1(),
+                        entry.getResource2(),
+                        entry.getEndingId()
+                ));
+            }
+
+            sendTextMessage(chatId, sb.toString());
+
+        } catch (Exception e) {
+            log.error("Failed to execute /stats command", e);
+            sendTextMessage(chatId, "Ошибка при получении статистики.");
+        }
+    }
+
+    /**
+     * Обрабатывает команду /sendtop5 <сообщение>
+     */
+    private void handleSendTop5Command(Long chatId, String text) {
+        log.info("Admin command /sendtop5 executed by chatId {}", chatId);
+        String messageToSend;
+        try {
+            messageToSend = text.substring("/sendtop5".length()).trim();
+        } catch (Exception e) {
+            messageToSend = null;
+        }
+
+        if (messageToSend == null || messageToSend.isEmpty()) {
+            sendTextMessage(chatId, "Неверный формат. Используй:\n`/sendtop5 Привет! Ты в топ-5!`");
+            return;
+        }
+
+        try {
+            // Запрашиваем топ-5
+            PageRequest pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "score"));
+            List<GameCompletion> top5 = gameCompletionRepository.findAllByOrderByScoreDesc(pageable);
+
+            if (top5.isEmpty()) {
+                sendTextMessage(chatId, "В лидерборде пока никого нет. Сообщение не отправлено.");
+                return;
+            }
+
+            int count = 0;
+            for (GameCompletion entry : top5) {
+                try {
+                    // Отправляем сообщение каждому победителю
+                    sendTextMessage(entry.getTelegramUserId(), messageToSend);
+                    count++;
+                } catch (Exception e) {
+                    log.warn("Failed to send message to user {}", entry.getTelegramUserId(), e);
+                }
+            }
+
+            sendTextMessage(chatId, String.format("Сообщение успешно отправлено %d из %d игроков в топ-5.", count, top5.size()));
+
+        } catch (Exception e) {
+            log.error("Failed to execute /sendtop5 command", e);
+            sendTextMessage(chatId, "Ошибка при отправке сообщений.");
+        }
+    }
+
     private void showScenarioByEditing(Long chatId, Integer messageId, Scenario scenario, String caption, GameState state) {
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
                 scenario.id(),
@@ -285,7 +459,7 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         try {
             telegramClient.execute(msg);
         } catch (TelegramApiException e) {
-            log.error("Failed to send text message", e);
+            log.error("Failed to send text message to chatId {}", chatId, e);
         }
     }
 
@@ -385,4 +559,3 @@ public class SimpleTextGameBot implements SpringLongPollingBot, LongPollingSingl
         }
     }
 }
-
