@@ -16,4 +16,8 @@ public class BotService {
     public String getBotUsername() {
         return botConfig.getUsername();
     }
+
+    public Long getAdminId() {
+        return botConfig.getAdminId();
+    }
 }
