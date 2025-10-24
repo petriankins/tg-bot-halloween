@@ -5,6 +5,13 @@ spring:
       - "scenarios.yml"
       - "resources.yml"
       - "messages.yml"
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        temp:
+          use_jdbc_metadata_defaults: false
 
 game:
   gameSettings:
