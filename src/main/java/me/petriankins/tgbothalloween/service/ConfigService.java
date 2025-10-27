@@ -90,11 +90,11 @@ public class ConfigService {
 
     public String getResourceDisplay(String resourceType, int amount) {
         ResourcesConfig.ResourceConfig resourceConfig = getResources().get(resourceType);
-        if (resourceConfig == null) return resourceType + " " + amount;
+        if (resourceConfig == null) return "%s %d".formatted(resourceType, amount);
 
         String emoji = resourceConfig.getEmoji();
         String name = resourceConfig.getName();
-        return emoji + " " + name + " " + amount;
+        return "%s %s %d".formatted(emoji, name, amount);
     }
 
     public boolean isRandomScenarios() { // fixme

@@ -2,6 +2,7 @@ package me.petriankins.tgbothalloween.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import me.petriankins.tgbothalloween.model.GameState;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -25,7 +26,7 @@ public class CallbackHandlerService {
         GameState state = gameService.getGameState(chatId);
         if (state == null) {
             telegramMessageService.sendTextMessage(chatId,
-                    configService.getMessages().get("useStart"));
+                    configService.getMessages().get(ConfigConstants.USE_START));
             return;
         }
 

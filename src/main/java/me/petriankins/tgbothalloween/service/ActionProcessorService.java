@@ -3,6 +3,7 @@ package me.petriankins.tgbothalloween.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.petriankins.tgbothalloween.config.ScenariosConfig;
+import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import me.petriankins.tgbothalloween.model.ActionOption;
 import me.petriankins.tgbothalloween.model.GameState;
 import me.petriankins.tgbothalloween.model.Scenario;
@@ -10,12 +11,12 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 
+import static me.petriankins.tgbothalloween.constants.ConfigConstants.EMPTY_LINE;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActionProcessorService {
-
-    private static final String LINE_BREAK = "\n\n";
 
     private final ScenarioService scenarioService;
     private final KeyboardService keyboardService;
@@ -36,7 +37,7 @@ public class ActionProcessorService {
 
         if (state.currentScenario == null || scenarioId != state.currentScenario.id()) {
             telegramMessageService.sendTextMessage(chatId,
-                    configService.getMessages().get("oldButton"));
+                    configService.getMessages().get(ConfigConstants.OLD_BUTTON));
             return;
         }
 
@@ -70,10 +71,10 @@ public class ActionProcessorService {
 
         ScenariosConfig.ActionRequirement requirement = action.requires();
         if (requirement != null) {
-            int currentValue = requirement.getResource().equals("resource1") ?
+            int currentValue = requirement.getResource().equals(ConfigConstants.RESOURCE_1) ?
                     state.resource1 : state.resource2;
             if (currentValue <= requirement.getGreaterThan()) {
-                String messageKey = requirement.getResource().equals("resource1") ?
+                String messageKey = requirement.getResource().equals(ConfigConstants.RESOURCE_1) ?
                         "requirementNotMetResource1" : "requirementNotMetResource2";
                 telegramMessageService.sendTextMessage(chatId,
                         configService.getMessages().get(messageKey));
@@ -103,7 +104,7 @@ public class ActionProcessorService {
             resultText += configService.formatMessage("itemAcquired", "itemName", itemName);
         }
 
-        return resourcesLine + inventoryLine + LINE_BREAK + resultText;
+        return "%s%s%s%s".formatted(resourcesLine, inventoryLine, ConfigConstants.EMPTY_LINE, resultText);
     }
 
     private boolean isGameOver(Long chatId, Integer messageId, GameState state, String resultText) {
@@ -112,11 +113,11 @@ public class ActionProcessorService {
             gameResultService.saveGameResult(state, endingId);
 
             String inventoryLine = resourcesService.getCurrentInventoryLine(state);
-            String gameOverMessage = configService.formatMessage("gameOver",
-                    "resource1", state.resource1,
-                    "resource2", state.resource2);
+            String gameOverMessage = configService.formatMessage(ConfigConstants.GAME_OVER,
+                    ConfigConstants.RESOURCE_1, state.resource1,
+                    ConfigConstants.RESOURCE_2, state.resource2);
 
-            gameOverMessage = inventoryLine + LINE_BREAK + gameOverMessage;
+            gameOverMessage = "%s%s%s".formatted(inventoryLine, EMPTY_LINE, gameOverMessage);
             telegramMessageService.editMessageCaption(chatId, messageId, gameOverMessage, null);
             gameService.endGame(chatId);
             return true;
@@ -156,9 +157,9 @@ public class ActionProcessorService {
 
         String inventoryLine = resourcesService.getCurrentInventoryLine(state);
         String gameWinMessage = configService.formatMessage("gameWinWithPromo",
-                "resource1", state.resource1,
-                "resource2", state.resource2);
-        gameWinMessage = inventoryLine + LINE_BREAK + gameWinMessage;
+                ConfigConstants.RESOURCE_1, state.resource1,
+                ConfigConstants.RESOURCE_2, state.resource2);
+        gameWinMessage = "%s%s%s".formatted(inventoryLine, EMPTY_LINE, gameWinMessage);
 
         telegramMessageService.editMessageCaption(chatId, messageId, gameWinMessage, null);
         gameService.endGame(chatId);
@@ -170,7 +171,7 @@ public class ActionProcessorService {
                 !state.inventory.contains(nextScenario.requiredItem())) {
             String itemName = configService.getItemName(nextScenario.requiredItem());
             String pathBlockedMessage = configService.formatMessage("pathBlocked", "itemName", itemName);
-            String combinedCaption = resultText + LINE_BREAK + pathBlockedMessage;
+            String combinedCaption = "%s%s%s".formatted(resultText, EMPTY_LINE, pathBlockedMessage);
 
             InlineKeyboardMarkup currentMarkup = keyboardService.createScenarioKeyboard(
                     state.currentScenario.id(),
@@ -188,14 +189,14 @@ public class ActionProcessorService {
         state.currentScenario = nextScenario;
         state.currentScenarioId = nextScenario.id();
 
-        String separator = configService.getMessages().get("lineBreak");
-        String combinedCaption = resultText + LINE_BREAK + separator + LINE_BREAK + nextScenario.description();
+        String separator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
+        String combinedCaption = "%s%s%s%s%s".formatted(resultText, EMPTY_LINE, separator, EMPTY_LINE, nextScenario.description());
 
         if (nextScenario.actions() == null || nextScenario.actions().length == 0) {
             long endingId = nextScenario.id();
             gameResultService.saveGameResult(state, endingId);
 
-            String picPath = nextScenario.id() + ".png";
+            String picPath = "%d.png".formatted(nextScenario.id());
             telegramMessageService.editMessageMedia(chatId, messageId, picPath, combinedCaption, null);
             gameService.endGame(chatId);
             return;
@@ -206,7 +207,7 @@ public class ActionProcessorService {
                 nextScenario.actions(),
                 state
         );
-        String picPath = nextScenario.id() + ".png";
+        String picPath = "%d.png".formatted(nextScenario.id());
         telegramMessageService.editMessageMedia(chatId, messageId, picPath, combinedCaption, markup);
     }
 }

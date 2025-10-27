@@ -2,6 +2,7 @@ package me.petriankins.tgbothalloween.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -37,7 +38,7 @@ public class MessageHandlerService {
             gameFlowService.startGame(chatId, from);
         } else {
             telegramMessageService.sendTextMessage(chatId,
-                    configService.getMessages().get("unknownCommand"));
+                    configService.getMessages().get(ConfigConstants.UNKNOWN_COMMAND));
         }
     }
 
@@ -46,6 +47,7 @@ public class MessageHandlerService {
             return false;
         }
         Long adminId = botService.getAdminId();
-        return adminId != null && adminId.equals(userId);
+        return adminId != null
+                && adminId.equals(userId);
     }
 }

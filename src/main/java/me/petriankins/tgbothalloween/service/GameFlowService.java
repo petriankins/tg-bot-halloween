@@ -2,18 +2,19 @@ package me.petriankins.tgbothalloween.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import me.petriankins.tgbothalloween.model.GameState;
 import me.petriankins.tgbothalloween.model.Scenario;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 
+import static me.petriankins.tgbothalloween.constants.ConfigConstants.EMPTY_LINE;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class GameFlowService {
-
-    private static final String LINE_BREAK = "\n\n";
 
     private final GameService gameService;
     private final ScenarioService scenarioService;
@@ -29,9 +30,9 @@ public class GameFlowService {
         state.userId = from.getId();
         state.username = from.getUserName();
 
-        String welcomeMessage = resourcesService.getInitialResourcesLine()
-                + LINE_BREAK
-                + configService.getMessages().get("welcome");
+        String initialResourcesLine = resourcesService.getInitialResourcesLine();
+        String welcome = configService.getMessages().get(ConfigConstants.WELCOME);
+        String initialMessage = "%s%s%s".formatted(initialResourcesLine, EMPTY_LINE, welcome);
 
         Scenario firstScenario = scenarioService.getScenarioById(1L);
         if (firstScenario == null) {
@@ -44,9 +45,8 @@ public class GameFlowService {
         state.currentScenario = firstScenario;
         state.currentScenarioId = firstScenario.id();
 
-        String combinedText = welcomeMessage + LINE_BREAK +
-                configService.getMessages().get("lineBreak") + LINE_BREAK +
-                firstScenario.description();
+        String lineSeparator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
+        String combinedText = "%s%s%s%s%s".formatted(initialMessage, EMPTY_LINE, lineSeparator, EMPTY_LINE, firstScenario.description());
 
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
                 firstScenario.id(),
@@ -54,7 +54,7 @@ public class GameFlowService {
                 state
         );
 
-        String picPath = firstScenario.id() + ".png";
+        String picPath = "%d.png".formatted(firstScenario.id());
         telegramMessageService.sendPhotoWithKeyboard(chatId, picPath, combinedText, markup);
     }
 
