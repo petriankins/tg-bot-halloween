@@ -28,8 +28,8 @@ public class MessageHandlerService {
                 adminCommandService.handleStatsCommand(chatId);
                 return;
             }
-            if (text.startsWith("/sendtop5")) {
-                adminCommandService.handleSendTop5Command(chatId, text);
+            if (text.startsWith("/sendmany")) {
+                adminCommandService.handleSendCommand(chatId, text);
                 return;
             }
         }

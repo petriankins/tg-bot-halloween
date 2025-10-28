@@ -32,10 +32,11 @@ public class AdminCommandService {
             StringBuilder sb = new StringBuilder("🏆 *Лидерборд (Топ-10)* 🏆\n\n");
             int rank = 1;
             for (GameCompletion entry : leaderboard) {
-                sb.append(String.format("%d. *%d очков* - @%s (❤️%d, 🧠%d) - Концовка: %d\n",
+                sb.append(String.format("%d. *%d очков* - @%s (ID: `%d`) - (❤️%d, 🧠%d) - K: %d\n",
                         rank++,
                         entry.getScore(),
-                        entry.getUsername() != null ? entry.getUsername() : "id:" + entry.getTelegramUserId(),
+                        entry.getUsername() != null ? entry.getUsername() : "???",
+                        entry.getTelegramUserId(),
                         entry.getResource1(),
                         entry.getResource2(),
                         entry.getEndingId()
@@ -50,47 +51,49 @@ public class AdminCommandService {
         }
     }
 
-    public void handleSendTop5Command(Long chatId, String text) {
-        log.info("Admin command /sendtop5 executed by chatId {}", chatId);
-        String messageToSend;
-        try {
-            messageToSend = text.substring("/sendtop5".length()).trim();
-        } catch (Exception e) {
-            messageToSend = null;
-        }
+    public void handleSendCommand(Long chatId, String text) {
+        log.info("Admin command /sendmany executed by chatId {}", chatId);
+        String[] parts = text.split(" ", 3);
 
-        if (messageToSend == null || messageToSend.isEmpty()) {
+        if (parts.length < 3) {
             telegramMessageService.sendTextMessage(chatId,
-                    "Неверный формат. Используй:\n`/sendtop5 Привет! Ты в топ-5!`");
+                    "Неверный формат. Используй:\n`/sendmany <id1>,<id2>... Привет!`");
             return;
         }
 
-        try {
-            PageRequest pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "score"));
-            List<GameCompletion> top5 = gameCompletionRepository.findAllByOrderByScoreDesc(pageable);
+        String idsString = parts[1];
+        String messageToSend = parts[2];
+        String[] userIds = idsString.split(",");
 
-            if (top5.isEmpty()) {
-                telegramMessageService.sendTextMessage(chatId,
-                        "В лидерборде пока никого нет. Сообщение не отправлено.");
-                return;
-            }
-
-            int count = 0;
-            for (GameCompletion entry : top5) {
-                try {
-                    telegramMessageService.sendTextMessage(entry.getTelegramUserId(), messageToSend);
-                    count++;
-                } catch (Exception e) {
-                    log.warn("Failed to send message to user {}", entry.getTelegramUserId(), e);
-                }
-            }
-
+        if (userIds.length == 0 || messageToSend.isEmpty()) {
             telegramMessageService.sendTextMessage(chatId,
-                    String.format("Сообщение успешно отправлено %d из %d игроков в топ-5.", count, top5.size()));
-
-        } catch (Exception e) {
-            log.error("Failed to execute /sendtop5 command", e);
-            telegramMessageService.sendTextMessage(chatId, "Ошибка при отправке сообщений.");
+                    "Неверный формат. Используй:\n`/sendmany <id1>,<id2>... Привет!`");
+            return;
         }
+
+        int count = 0;
+        int failed = 0;
+        StringBuilder report = new StringBuilder();
+
+        for (String userIdStr : userIds) {
+            try {
+                Long targetUserId = Long.parseLong(userIdStr.trim());
+                telegramMessageService.sendTextMessage(targetUserId, messageToSend);
+                report.append(String.format("✅ Сообщение отправлено: %d\n", targetUserId));
+                count++;
+            } catch (NumberFormatException e) {
+                log.warn("Invalid user ID format: {}", userIdStr);
+                report.append(String.format("❌ Неверный формат ID: %s\n", userIdStr));
+                failed++;
+            } catch (Exception e) {
+                log.warn("Failed to send message to user {}", userIdStr, e);
+                report.append(String.format("❌ Ошибка отправки: %s\n", userIdStr));
+                failed++;
+            }
+        }
+
+        telegramMessageService.sendTextMessage(chatId,
+                String.format("Рассылка завершена.\nУспешно: %d\nОшибки: %d\n\nОтчет:\n%s",
+                        count, failed, report.toString()));
     }
 }
