@@ -2,7 +2,6 @@ package me.petriankins.tgbothalloween.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import me.petriankins.tgbothalloween.model.GameState;
 import me.petriankins.tgbothalloween.model.Scenario;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,6 @@ public class GameFlowService {
     private final GameService gameService;
     private final ScenarioService scenarioService;
     private final KeyboardService keyboardService;
-    private final ConfigService configService;
     private final ResourcesService resourcesService;
     private final TelegramMessageService telegramMessageService;
 
@@ -31,12 +29,10 @@ public class GameFlowService {
         state.username = from.getUserName();
 
         String initialResourcesLine = resourcesService.getInitialResourcesLine();
-        String welcome = configService.getMessages().get(ConfigConstants.WELCOME);
-        String initialMessage = "%s%s%s".formatted(initialResourcesLine, EMPTY_LINE, welcome);
 
-        Scenario firstScenario = scenarioService.getScenarioById(1L);
+        Scenario firstScenario = scenarioService.getScenarioById(0L);
         if (firstScenario == null) {
-            log.error("Starting scenario with ID 1 not found!");
+            log.error("Starting scenario with ID 0 not found!");
             telegramMessageService.sendTextMessage(chatId,
                     "Ошибка: стартовый сценарий не найден. Обратитесь к администратору.");
             return;
@@ -45,8 +41,7 @@ public class GameFlowService {
         state.currentScenario = firstScenario;
         state.currentScenarioId = firstScenario.id();
 
-        String lineSeparator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
-        String combinedText = "%s%s%s%s%s".formatted(initialMessage, EMPTY_LINE, lineSeparator, EMPTY_LINE, firstScenario.description());
+        String combinedText = "%s%s%s".formatted(initialResourcesLine, EMPTY_LINE, firstScenario.description()); // New combined text
 
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
                 firstScenario.id(),
@@ -63,3 +58,4 @@ public class GameFlowService {
         gameService.endGame(chatId);
     }
 }
+
