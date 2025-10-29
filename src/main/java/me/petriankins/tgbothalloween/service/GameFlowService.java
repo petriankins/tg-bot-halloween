@@ -52,10 +52,5 @@ public class GameFlowService {
         String picPath = "%d.png".formatted(firstScenario.id());
         telegramMessageService.sendPhotoWithKeyboard(chatId, picPath, combinedText, markup);
     }
-
-    public void endGame(Long chatId, String finalMessage) {
-        telegramMessageService.sendTextMessage(chatId, finalMessage);
-        gameService.endGame(chatId);
-    }
 }
 

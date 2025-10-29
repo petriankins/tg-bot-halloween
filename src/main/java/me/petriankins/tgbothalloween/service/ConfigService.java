@@ -2,9 +2,7 @@ package me.petriankins.tgbothalloween.service;
 
 import lombok.RequiredArgsConstructor;
 import me.petriankins.tgbothalloween.config.BotConfig;
-import me.petriankins.tgbothalloween.config.GameConfig;
 import me.petriankins.tgbothalloween.config.ScenariosConfig;
-import me.petriankins.tgbothalloween.constants.ConfigConstants;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,15 +14,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ConfigService {
 
-    private final GameConfig gameConfig;
     private final ScenariosConfig scenariosConfig;
     private final BotConfig botConfig;
 
     private final Random random = new Random();
-
-    public GameConfig.GameSettings getGameSettings() {
-        return gameConfig.getGameSettings();
-    }
 
     public String getScenarioKey() {
         return botConfig.getScenario();
@@ -56,10 +49,6 @@ public class ConfigService {
     public Map<String, Integer> getInitialResources() {
         return getResources().entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getInitialValue()));
-    }
-
-    public int getMaxScenariosPerGame() { // fixme
-        return getGameSettings().getMaxScenariosPerGame();
     }
 
     public ScenariosConfig.ResourceChanges getResourceChanges() {
@@ -100,9 +89,4 @@ public class ConfigService {
         String name = resourceConfig.getName();
         return "%s %s %d".formatted(emoji, name, amount);
     }
-
-    public boolean isRandomScenarios() { // fixme
-        return Boolean.parseBoolean(getMessages().getOrDefault(ConfigConstants.RANDOM_SCENARIOS, "true"));
-    }
 }
-

@@ -19,7 +19,4 @@ public final class ConfigConstants {
     public static final String GAME_OVER = "gameOver";
     public static final String LINE_BREAK = "lineBreak";
     public static final String EMPTY_LINE = "\n\n";
-
-
-    public static final String RANDOM_SCENARIOS = "randomScenarios";
 }
