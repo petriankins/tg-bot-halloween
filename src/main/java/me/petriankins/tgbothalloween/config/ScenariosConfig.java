@@ -13,6 +13,9 @@ import java.util.Map;
 public class ScenariosConfig {
     private List<ScenarioConfig> scenarios;
     private Map<String, String> items;
+    private Map<String, String> messages;
+    private Map<String, ResourceConfig> resources;
+    private ResourceChanges resourceChanges;
 
     @Data
     public static class ScenarioConfig {
@@ -38,5 +41,20 @@ public class ScenariosConfig {
     public static class ActionRequirement {
         private String resource;
         private int greaterThan;
+    }
+
+    @Data
+    public static class ResourceConfig {
+        private String name;
+        private String emoji;
+        private int initialValue;
+    }
+
+    @Data
+    public static class ResourceChanges {
+        private int positiveMin;
+        private int positiveMax;
+        private int negativeMin;
+        private int negativeMax;
     }
 }

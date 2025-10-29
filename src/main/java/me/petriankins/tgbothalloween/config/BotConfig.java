@@ -11,4 +11,5 @@ public class BotConfig {
     private String username;
     private String token;
     private Long adminId;
+    private String scenario = "default";
 }
