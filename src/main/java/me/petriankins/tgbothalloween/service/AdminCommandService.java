@@ -15,13 +15,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminCommandService {
 
+    public static final int TOP_RECORDS = 30;
+
     private final GameCompletionRepository gameCompletionRepository;
     private final TelegramMessageService telegramMessageService;
 
     public void handleStatsCommand(Long chatId) {
         log.info("Admin command /stats executed by chatId {}", chatId);
         try {
-            PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "score"));
+            PageRequest pageable = PageRequest.of(0, TOP_RECORDS, Sort.by(Sort.Direction.DESC, "score"));
             List<GameCompletion> leaderboard = gameCompletionRepository.findAllByOrderByScoreDesc(pageable);
 
             if (leaderboard.isEmpty()) {
@@ -29,7 +31,7 @@ public class AdminCommandService {
                 return;
             }
 
-            StringBuilder sb = new StringBuilder("🏆 *Лидерборд (Топ-10)* 🏆\n\n");
+            StringBuilder sb = new StringBuilder("🏆 *Лидерборд* 🏆\n\n");
             int rank = 1;
             for (GameCompletion entry : leaderboard) {
                 sb.append(String.format("%d. *%d очков* - @%s (ID: `%d`) - (❤️%d, 🧠%d) - K: %d\n",
