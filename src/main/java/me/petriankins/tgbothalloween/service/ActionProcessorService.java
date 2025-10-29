@@ -54,7 +54,7 @@ public class ActionProcessorService {
         applyResourceChanges(state, chosenAction);
         String resultText = buildResultText(state, chosenAction);
 
-        if (isGameOver(chatId, messageId, state, resultText)) {
+        if (isGameOver(chatId, messageId, state)) {
             return;
         }
 
@@ -107,7 +107,7 @@ public class ActionProcessorService {
         return "%s%s%s%s".formatted(resourcesLine, inventoryLine, ConfigConstants.EMPTY_LINE, resultText);
     }
 
-    private boolean isGameOver(Long chatId, Integer messageId, GameState state, String resultText) {
+    private boolean isGameOver(Long chatId, Integer messageId, GameState state) {
         if (state.resource1 <= 0 || state.resource2 <= 0) {
             long endingId = 999L;
             gameResultService.saveGameResult(state, endingId);
@@ -129,11 +129,6 @@ public class ActionProcessorService {
                                      ActionOption action, String resultText) {
         Long nextScenarioId = action.nextScenarioId();
 
-        if (nextScenarioId == null) {
-            handleGameEnding(chatId, messageId, state);
-            return;
-        }
-
         Scenario nextScenario = scenarioService.getScenarioById(nextScenarioId);
         if (nextScenario == null) {
             log.error("Scenario not found by ID: {}", nextScenarioId);
@@ -149,20 +144,6 @@ public class ActionProcessorService {
         }
 
         showNextScenario(chatId, messageId, state, nextScenario, resultText);
-    }
-
-    private void handleGameEnding(Long chatId, Integer messageId, GameState state) {
-        long endingId = state.currentScenarioId;
-        gameResultService.saveGameResult(state, endingId);
-
-        String inventoryLine = resourcesService.getCurrentInventoryLine(state);
-        String gameWinMessage = configService.formatMessage("gameWinWithPromo",
-                ConfigConstants.RESOURCE_1, state.resource1,
-                ConfigConstants.RESOURCE_2, state.resource2);
-        gameWinMessage = "%s%s%s".formatted(inventoryLine, EMPTY_LINE, gameWinMessage);
-
-        telegramMessageService.editMessageCaption(chatId, messageId, gameWinMessage, null);
-        gameService.endGame(chatId);
     }
 
     private boolean canAccessScenario(Long chatId, Integer messageId, GameState state,
