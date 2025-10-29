@@ -38,6 +38,7 @@ public class ScenarioConstructor {
                 .description(description)
                 .actions(actions)
                 .requiredItem(scenarioConfig.getRequiredItem())
+                .score(scenarioConfig.getScore())
                 .build();
     }
 

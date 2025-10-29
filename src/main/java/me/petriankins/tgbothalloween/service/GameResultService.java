@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.petriankins.tgbothalloween.db.GameCompletion;
 import me.petriankins.tgbothalloween.db.GameCompletionRepository;
 import me.petriankins.tgbothalloween.model.GameState;
+import me.petriankins.tgbothalloween.model.Scenario;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 public class GameResultService {
 
     private final GameCompletionRepository gameCompletionRepository;
+    private final ScenarioService scenarioService;
 
     public void saveGameResult(GameState state, long endingId) {
         if (state.userId == null) {
@@ -21,7 +23,8 @@ public class GameResultService {
         }
 
         try {
-            int score = calculateScore(endingId, state);
+            Scenario endingScenario = scenarioService.getScenarioById(endingId);
+            int score = calculateScore(endingScenario, state);
 
             GameCompletion completion = new GameCompletion();
             completion.setTelegramUserId(state.userId);
@@ -40,14 +43,15 @@ public class GameResultService {
         }
     }
 
-    private int calculateScore(long endingId, GameState state) {
-        int baseScore = switch ((int) endingId) {
-            case 200 -> 100;  // Истинная хорошая концовка
-            case 201 -> 150;  // Концовка силы (Особая)
-            case 100, 102 -> 50;  // Нейтральная
-            case 101 -> 10;  // Плохая
-            default -> 0;  // Смерть или плохая концовка
-        };
+    private int calculateScore(Scenario endingScenario, GameState state) {
+        int baseScore = 0;
+
+        if (endingScenario != null && endingScenario.score() != null) {
+            baseScore = endingScenario.score();
+        } else {
+            log.warn("Ending scenario ID {} does not have 'score' defined. Using baseScore: 0",
+                    endingScenario != null ? endingScenario.id() : "UNKNOWN");
+        }
 
         int r1 = Math.max(0, state.resource1);
         int r2 = Math.max(0, state.resource2);

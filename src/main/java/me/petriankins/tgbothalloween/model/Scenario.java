@@ -6,5 +6,6 @@ import lombok.Builder;
 public record Scenario(long id,
                        String description,
                        ActionOption[] actions,
-                       String requiredItem) {
+                       String requiredItem,
+                       Integer score) {
 }

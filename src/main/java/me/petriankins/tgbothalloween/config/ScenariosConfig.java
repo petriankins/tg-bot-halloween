@@ -23,6 +23,7 @@ public class ScenariosConfig {
         private String description;
         private List<ActionConfig> actions;
         private String requiredItem;
+        private Integer score;
     }
 
     @Data
