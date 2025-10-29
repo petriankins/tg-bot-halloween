@@ -2,7 +2,7 @@ spring:
   config:
     import:
       - "bot.yml"
-      - "scenarios.${bot.scenario:default}.yml" # Changed dynamic import
+      - "scenarios.${BOT_SCENARIO:default}.yml"
   jpa:
     hibernate:
       ddl-auto: update
