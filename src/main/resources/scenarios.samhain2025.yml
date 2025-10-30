@@ -25,8 +25,8 @@ resources:
 resourceChanges:
   positiveMin: 20
   positiveMax: 20
-  negativeMin: -30
-  negativeMax: -20
+  negativeMin: -10
+  negativeMax: -10
 
 items:
   offering_bundle: "Узелок с овсом и рябиной"

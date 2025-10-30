@@ -29,6 +29,11 @@ User ids are in the <code> block, so they will be copied on click.
 
 # TBD
 
+## Balancing
+- automate calculation of the best path to each ending
+- critical path analysis, identify bottlenecks and valuate the resources
+- automate detecting soft locks
+
 ## Scoring system
 
 - finding the best ending - 150 or something
