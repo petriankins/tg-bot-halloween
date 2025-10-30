@@ -42,3 +42,8 @@ User ids are in the <code> block, so they will be copied on click.
 Set of the scenarios.
 Max scenarios per one game.
 Boolean isRandomScenariosEnabled.
+
+
+# Bugs
+- game over by resource depletion doesn't work properly
+- show resource change if any after each step

@@ -171,7 +171,8 @@ public class ActionProcessorService {
         state.currentScenarioId = nextScenario.id();
 
         String separator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
-        String combinedCaption = "%s%s%s%s%s".formatted(resultText, EMPTY_LINE, separator, EMPTY_LINE, nextScenario.description());
+//        String combinedCaption = "%s%s%s%s%s".formatted(resultText, EMPTY_LINE, separator, EMPTY_LINE, nextScenario.description());
+        String combinedCaption = "%s%s%s".formatted(resultText, EMPTY_LINE, nextScenario.description());
 
         if (nextScenario.actions() == null || nextScenario.actions().length == 0) {
             long endingId = nextScenario.id();
