@@ -35,7 +35,6 @@ public class ResourcesService {
         String header = configService.formatMessage(ConfigConstants.INVENTORY_LINE);
         String itemsList = state.inventory.stream()
                 .map(configService::getItemName)
-                .map(itemName -> "- " + itemName)
                 .collect(Collectors.joining("\n"));
         return header + "\n" + itemsList;
     }
