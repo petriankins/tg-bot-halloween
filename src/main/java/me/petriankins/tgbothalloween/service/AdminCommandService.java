@@ -23,7 +23,11 @@ public class AdminCommandService {
     public void handleStatsCommand(Long chatId) {
         log.info("Admin command /stats executed by chatId {}", chatId);
         try {
-            PageRequest pageable = PageRequest.of(0, TOP_RECORDS, Sort.by(Sort.Direction.DESC, "score"));
+            Sort sort = Sort.by(
+                    Sort.Order.desc("score"),
+                    Sort.Order.asc("completedAt")
+            );
+            PageRequest pageable = PageRequest.of(0, TOP_RECORDS, sort);
             List<GameCompletion> leaderboard = gameCompletionRepository.findAllByOrderByScoreDesc(pageable);
 
             if (leaderboard.isEmpty()) {
@@ -34,7 +38,8 @@ public class AdminCommandService {
             StringBuilder sb = new StringBuilder("🏆 *Лидерборд* 🏆\n\n");
             int rank = 1;
             for (GameCompletion entry : leaderboard) {
-                sb.append(String.format("%d. *%d очков* - @%s (ID: `%d`) - (❤️%d, 🧠%d) - K: %d\n",
+                sb.append(String.format(
+                        "%d. *%d очков* - @%s (ID: `%d`) - (❤️%d, 🧠%d) - K: %d\n",
                         rank++,
                         entry.getScore(),
                         entry.getUsername() != null ? entry.getUsername() : "???",
@@ -46,12 +51,12 @@ public class AdminCommandService {
             }
 
             telegramMessageService.sendTextMessage(chatId, sb.toString());
-
         } catch (Exception e) {
             log.error("Failed to execute /stats command", e);
             telegramMessageService.sendTextMessage(chatId, "Ошибка при получении статистики.");
         }
     }
+
 
     public void handleSendCommand(Long chatId, String text) {
         log.info("Admin command /sendmany executed by chatId {}", chatId);
