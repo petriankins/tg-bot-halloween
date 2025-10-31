@@ -210,7 +210,7 @@ public class ActionProcessorService {
             long endingId = nextScenario.id();
             gameResultService.saveGameResult(state, endingId);
 
-            String picPath = "%d.png".formatted(nextScenario.id());
+            String picPath = "%d.jpg".formatted(nextScenario.id());
             telegramMessageService.editMessageMedia(chatId, messageId, picPath, combinedCaption, null);
             gameService.endGame(chatId);
             return;
@@ -221,7 +221,7 @@ public class ActionProcessorService {
                 nextScenario.actions(),
                 state
         );
-        String picPath = "%d.png".formatted(nextScenario.id());
+        String picPath = "%d.jpg".formatted(nextScenario.id());
         telegramMessageService.editMessageMedia(chatId, messageId, picPath, combinedCaption, markup);
     }
 }
