@@ -54,7 +54,7 @@ scene_10_forest_fairies (Covers scenarios: 21, 25)
 
 (A magical clearing in the forest. A circle of small, whimsical, and gothic fairies are dancing in a wild ring. They are part beautiful (like Tomm Moore's 'Song of the Sea') and part menacing (like Tim Burton's 'Corpse Bride'). Their eyes glow, and they have sharp, pointy features. They are beckoning the viewer to join them. 2D animation style, mix of Tomm Moore and Tim Burton, whimsical and slightly gothic, intricate celtic patterns, vibrant rich colors, hand-drawn look, storybook illustration.) --no text, words, letters, signature, watermark
 
-🎬 Приоритет 3: Концовки (6 Сцен)
+# 🎬 Приоритет 3: Концовки (6 Сцен)
 
 scene_end_01_cowardice (Covers scenario: 101)
 
