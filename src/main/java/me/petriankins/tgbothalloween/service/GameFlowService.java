@@ -41,7 +41,8 @@ public class GameFlowService {
         state.currentScenario = firstScenario;
         state.currentScenarioId = firstScenario.id();
 
-        String combinedText = "%s%s%s".formatted(initialResourcesLine, EMPTY_LINE, firstScenario.description()); // New combined text
+        String inventoryLine = resourcesService.getCurrentInventoryLine(state);
+        String combinedText = "%s%s%s%s".formatted(initialResourcesLine, inventoryLine, EMPTY_LINE, firstScenario.description());
 
         InlineKeyboardMarkup markup = keyboardService.createScenarioKeyboard(
                 firstScenario.id(),

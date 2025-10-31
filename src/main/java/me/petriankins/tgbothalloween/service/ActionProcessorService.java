@@ -51,14 +51,38 @@ public class ActionProcessorService {
                 state.username != null ? state.username : "unknown",
                 chosenAction.label());
 
+        int oldResource1 = state.resource1;
+        int oldResource2 = state.resource2;
+
         applyResourceChanges(state, chosenAction);
-        String resultText = buildResultText(state, chosenAction);
+
+        String resourcesLine = resourcesService.getCurrentResourcesLine(state);
+        String inventoryLine = resourcesService.getCurrentInventoryLine(state); // Уже отформатирован
+        String newItemLine = "";
+
+        if (chosenAction.givesItem() != null) {
+            state.inventory.add(chosenAction.givesItem());
+            String itemName = configService.getItemName(chosenAction.givesItem());
+            newItemLine = configService.formatMessage("itemAcquired", "itemName", itemName);
+
+            inventoryLine = resourcesService.getCurrentInventoryLine(state);
+        }
+
+        String resultText = chosenAction.resultText();
+        String resourceChangesLine = buildResourceChangesLine(oldResource1, state.resource1, oldResource2, state.resource2);
+
+        String combinedResultText = resourcesLine +
+                inventoryLine +
+                (newItemLine.isEmpty() ? "" : EMPTY_LINE + newItemLine) +
+                EMPTY_LINE +
+                resultText +
+                (resourceChangesLine.isEmpty() ? "" : EMPTY_LINE + resourceChangesLine);
 
         if (isGameOver(chatId, messageId, state)) {
             return;
         }
 
-        processNextScenario(chatId, messageId, state, chosenAction, resultText);
+        processNextScenario(chatId, messageId, state, chosenAction, combinedResultText);
     }
 
     private boolean validateAction(Long chatId, GameState state, ActionOption action) {
@@ -93,31 +117,41 @@ public class ActionProcessorService {
         if (state.resource2 > 100) state.resource2 = 100;
     }
 
-    private String buildResultText(GameState state, ActionOption action) {
-        String resourcesLine = resourcesService.getCurrentResourcesLine(state);
-        String inventoryLine = resourcesService.getCurrentInventoryLine(state);
-        String resultText = action.resultText();
+    private String buildResourceChangesLine(int oldR1, int newR1, int oldR2, int newR2) {
+        StringBuilder changes = new StringBuilder();
+        int diffR1 = newR1 - oldR1;
+        int diffR2 = newR2 - oldR2;
 
-        if (action.givesItem() != null) {
-            state.inventory.add(action.givesItem());
-            String itemName = configService.getItemName(action.givesItem());
-            resultText += configService.formatMessage("itemAcquired", "itemName", itemName);
+        if (diffR1 != 0) {
+            String r1Emoji = configService.getResources().get(ConfigConstants.RESOURCE_1).getEmoji();
+            changes.append(String.format("%s %s%d", r1Emoji, diffR1 > 0 ? "+" : "", diffR1));
         }
 
-        return "%s%s%s%s".formatted(resourcesLine, inventoryLine, ConfigConstants.EMPTY_LINE, resultText);
+        if (diffR2 != 0) {
+            if (changes.length() > 0) {
+                changes.append(", ");
+            }
+            String r2Emoji = configService.getResources().get(ConfigConstants.RESOURCE_2).getEmoji();
+            changes.append(String.format("%s %s%d", r2Emoji, diffR2 > 0 ? "+" : "", diffR2));
+        }
+
+        return changes.toString();
     }
 
     private boolean isGameOver(Long chatId, Integer messageId, GameState state) {
         if (state.resource1 <= 0 || state.resource2 <= 0) {
-            long endingId = 999L;
+            long endingId = 999L; // predefined ending ID for resource depletion fixme
             gameResultService.saveGameResult(state, endingId);
 
+            String resourcesLine = resourcesService.getCurrentResourcesLine(state);
             String inventoryLine = resourcesService.getCurrentInventoryLine(state);
-            String gameOverMessage = configService.formatMessage(ConfigConstants.GAME_OVER,
-                    ConfigConstants.RESOURCE_1, state.resource1,
-                    ConfigConstants.RESOURCE_2, state.resource2);
+            String gameOverText = configService.formatMessage(ConfigConstants.GAME_OVER);
 
-            gameOverMessage = "%s%s%s".formatted(inventoryLine, EMPTY_LINE, gameOverMessage);
+            String gameOverMessage = resourcesLine +
+                    inventoryLine +
+                    EMPTY_LINE +
+                    gameOverText;
+
             telegramMessageService.editMessageCaption(chatId, messageId, gameOverMessage, null);
             gameService.endGame(chatId);
             return true;
@@ -170,8 +204,6 @@ public class ActionProcessorService {
         state.currentScenario = nextScenario;
         state.currentScenarioId = nextScenario.id();
 
-        String separator = configService.getMessages().get(ConfigConstants.LINE_BREAK);
-//        String combinedCaption = "%s%s%s%s%s".formatted(resultText, EMPTY_LINE, separator, EMPTY_LINE, nextScenario.description());
         String combinedCaption = "%s%s%s".formatted(resultText, EMPTY_LINE, nextScenario.description());
 
         if (nextScenario.actions() == null || nextScenario.actions().length == 0) {
@@ -193,3 +225,4 @@ public class ActionProcessorService {
         telegramMessageService.editMessageMedia(chatId, messageId, picPath, combinedCaption, markup);
     }
 }
+

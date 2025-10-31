@@ -17,6 +17,7 @@ public final class ConfigConstants {
     public static final String OLD_BUTTON = "oldButton";
     public static final String USE_START = "useStart";
     public static final String GAME_OVER = "gameOver";
+    public static final String INVENTORY_LINE = "inventoryLine";
     public static final String LINE_BREAK = "lineBreak";
     public static final String EMPTY_LINE = "\n\n";
 }

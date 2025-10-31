@@ -31,10 +31,13 @@ public class ResourcesService {
         if (state.inventory == null || state.inventory.isEmpty()) {
             return "";
         }
+
+        String header = configService.formatMessage(ConfigConstants.INVENTORY_LINE);
         String itemsList = state.inventory.stream()
                 .map(configService::getItemName)
-                .collect(Collectors.joining(", "));
-
-        return configService.formatMessage("inventoryLine", "itemsList", itemsList);
+                .map(itemName -> "- " + itemName)
+                .collect(Collectors.joining("\n"));
+        return header + "\n" + itemsList;
     }
 }
+
