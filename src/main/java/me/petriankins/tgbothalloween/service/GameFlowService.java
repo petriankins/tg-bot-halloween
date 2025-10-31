@@ -50,7 +50,7 @@ public class GameFlowService {
                 state
         );
 
-        String picPath = "%d.png".formatted(firstScenario.id());
+        String picPath = "%d.jpg".formatted(firstScenario.id());
         telegramMessageService.sendPhotoWithKeyboard(chatId, picPath, combinedText, markup);
     }
 }
