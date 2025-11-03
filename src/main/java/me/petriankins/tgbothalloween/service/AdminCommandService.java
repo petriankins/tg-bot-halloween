@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AdminCommandService {
 
-    public static final int TOP_RECORDS = 30;
+    public static final int TOP_RECORDS = 50;
 
     private static final String LEADERBOARD_HEADER = "🏆 *Лидерборд* 🏆\n\n";
     private static final String NO_COMPLETIONS_MSG = "Пока никто не закончил игру.";
@@ -48,11 +48,14 @@ public class AdminCommandService {
             StringBuilder sb = new StringBuilder(LEADERBOARD_HEADER);
             int rank = 1;
             for (GameCompletion entry : leaderboard) {
+                String username = entry.getUsername() != null ? entry.getUsername() : "???";
+                String safeUsername = username.replace("_", "\\_");
+
                 sb.append(String.format(
                         "%d. *%d очков* - @%s (ID: `%d`) - (❤️%d, 🧠%d) - K: %d%n",
                         rank++,
                         entry.getScore(),
-                        entry.getUsername() != null ? entry.getUsername() : "???",
+                        safeUsername,
                         entry.getTelegramUserId(),
                         entry.getResource1(),
                         entry.getResource2(),
