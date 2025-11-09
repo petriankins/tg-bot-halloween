@@ -107,7 +107,7 @@ public class AdminCommandService {
             }
             try {
                 Long targetUserId = Long.parseLong(trimmed);
-                telegramMessageService.sendTextMessage(targetUserId, messageToSend);
+                telegramMessageService.sendPlainTextMessage(targetUserId, messageToSend);
                 report.append("✅ Сообщение отправлено: ").append(targetUserId).append('\n');
                 successCount++;
             } catch (NumberFormatException ex) {
@@ -158,7 +158,7 @@ public class AdminCommandService {
 
         for (Long targetUserId : uniqueUserIds) {
             try {
-                telegramMessageService.sendTextMessage(targetUserId, messageToSend);
+                telegramMessageService.sendPlainTextMessage(targetUserId, messageToSend);
                 report.append("✅ Сообщение отправлено: ").append(targetUserId).append('\n');
                 successCount++;
             } catch (RuntimeException ex) {

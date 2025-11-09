@@ -38,6 +38,18 @@ public class TelegramMessageService {
         }
     }
 
+    public void sendPlainTextMessage(Long chatId, String text) {
+        SendMessage msg = SendMessage.builder()
+                .chatId(chatId.toString())
+                .text(text)
+                .build();
+        try {
+            telegramClient.execute(msg);
+        } catch (TelegramApiException e) {
+            log.error("Failed to send plain text message to chatId {}", chatId, e);
+        }
+    }
+
     public void sendPhotoWithKeyboard(Long chatId, String picPath, String caption, InlineKeyboardMarkup markup) {
         String scenarioKey = configService.getScenarioKey();
         String fullPicPath = "/pics/" + scenarioKey + "/" + picPath;
