@@ -32,6 +32,14 @@ public class MessageHandlerService {
                 adminCommandService.handleSendCommand(chatId, text);
                 return;
             }
+            if (text.startsWith("/farewell")) {
+                adminCommandService.handleFarewellCommand(chatId, text, false);
+                return;
+            }
+            if (text.startsWith("/testfarewell")) {
+                adminCommandService.handleFarewellCommand(chatId, text, true);
+                return;
+            }
         }
 
         if ("/start".equalsIgnoreCase(text)) {

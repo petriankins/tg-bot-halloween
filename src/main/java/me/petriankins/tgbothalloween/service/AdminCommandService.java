@@ -10,6 +10,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -25,6 +26,10 @@ public class AdminCommandService {
     private static final String INVALID_FORMAT_MSG = "Неверный формат. Используй:\n`/sendmany <id1>,<id2>... Привет!`";
     private static final String REPORT_TEMPLATE = "Рассылка завершена.\nУспешно: %d\nОшибки: %d\n\nОтчет:\n%s";
     private static final Pattern COMMA_SPLIT = Pattern.compile(",");
+
+    private static final String FAREWELL_INVALID_FORMAT_MSG = "Неверный формат. Используй:\n`/farewell\n<сообщение на новой строке>`";
+    private static final String TEST_FAREWELL_INVALID_FORMAT_MSG = "Неверный формат. Используй:\n`/testfarewell\n<сообщение на новой строке>`";
+    private static final String FAREWELL_REPORT_TEMPLATE = "Рассылка '%s' завершена.\nУспешно: %d\nОшибки: %d\n\nОтчет:\n%s";
 
     private final GameCompletionRepository gameCompletionRepository;
     private final TelegramMessageService telegramMessageService;
@@ -119,6 +124,54 @@ public class AdminCommandService {
         telegramMessageService.sendTextMessage(
                 chatId,
                 String.format(REPORT_TEMPLATE, successCount, failureCount, report)
+        );
+    }
+
+    public void handleFarewellCommand(Long adminChatId, String text, boolean isTest) {
+        log.info("Admin command {} executed by chatId {}", isTest ? "/testfarewell" : "/farewell", adminChatId);
+
+        int firstNewline = text.indexOf('\n');
+
+        if (firstNewline == -1 || firstNewline + 1 >= text.length()) {
+            String errorMsg = isTest ? TEST_FAREWELL_INVALID_FORMAT_MSG : FAREWELL_INVALID_FORMAT_MSG;
+            telegramMessageService.sendTextMessage(adminChatId, errorMsg);
+            return;
+        }
+
+        String messageToSend = text.substring(firstNewline + 1);
+
+        Set<Long> uniqueUserIds;
+        if (isTest) {
+            uniqueUserIds = Set.of(adminChatId);
+            telegramMessageService.sendTextMessage(adminChatId,
+                    "ТЕСТ: Отправляю прощальное сообщение самому себе...\n\n---\n" + messageToSend + "\n---");
+        } else {
+            uniqueUserIds = gameCompletionRepository.findDistinctTelegramUserIds();
+            telegramMessageService.sendTextMessage(adminChatId,
+                    "ВНИМАНИЕ: Начинаю рассылку прощального сообщения по %d уникальным пользователям...".formatted(uniqueUserIds.size()));
+        }
+
+        // sending messages
+        int successCount = 0;
+        int failureCount = 0;
+        StringBuilder report = new StringBuilder();
+
+        for (Long targetUserId : uniqueUserIds) {
+            try {
+                telegramMessageService.sendTextMessage(targetUserId, messageToSend);
+                report.append("✅ Сообщение отправлено: ").append(targetUserId).append('\n');
+                successCount++;
+            } catch (RuntimeException ex) {
+                log.warn("Failed to send farewell message to user {}", targetUserId, ex);
+                report.append("❌ Ошибка отправки: ").append(targetUserId).append('\n');
+                failureCount++;
+            }
+        }
+
+        // send report to admin
+        telegramMessageService.sendTextMessage(
+                adminChatId,
+                String.format(FAREWELL_REPORT_TEMPLATE, isTest ? "TEST FAREWELL" : "FAREWELL", successCount, failureCount, report)
         );
     }
 }
